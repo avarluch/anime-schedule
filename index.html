@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#e6500c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ニコアニメ週間予定</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#1a1a2e;--surface:#16213e;--surface2:#0f3460;
+  --primary:#e6500c;--primary-dark:#c44008;
+  --text:#e8e8e8;--text2:#a0a0b0;--border:#2a2a4a;
+  --free-all:#2e7d32;--free-all-t:#a5d6a7;
+  --premium:#1565c0;--premium-t:#90caf9;
+  --danime:#7b1fa2;--danime-t:#ce93d8;
+  --first-latest:#558b2f;--first-latest-t:#dce775;
+  --first:#f57f17;--first-t:#ffe082;
+  --paid:#424242;--paid-t:#bdbdbd;
+  --warn:#b71c1c;--warn-bg:#311;
+  --radius:10px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,'Hiragino Sans',sans-serif;font-size:15px}
+#app{display:flex;flex-direction:column;height:100%;max-width:600px;margin:0 auto}
+
+/* Header */
+.header{background:var(--surface);padding:10px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;min-height:52px}
+.header-title{font-size:16px;font-weight:700;color:var(--primary);flex:1}
+.header-season{font-size:13px;color:var(--text2);flex:1}
+.btn{border:none;border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer;font-weight:600;line-height:1}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:active{background:var(--primary-dark)}
+.btn-ghost{background:transparent;color:var(--primary);border:1px solid var(--primary)}
+.btn-sm{padding:5px 9px;font-size:12px}
+.btn-icon{background:transparent;color:var(--text2);padding:6px;border:none;font-size:18px;cursor:pointer;border-radius:6px}
+.btn-icon:active{background:var(--border)}
+
+/* Content */
+.content{flex:1;overflow-y:auto;padding-bottom:60px;-webkit-overflow-scrolling:touch}
+
+/* Tab bar */
+.tabbar{position:fixed;bottom:0;left:0;right:0;max-width:600px;margin:0 auto;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;gap:3px;font-size:11px;color:var(--text2);cursor:pointer;border:none;background:none;min-height:54px}
+.tab.active{color:var(--primary)}
+.tab-icon{font-size:20px}
+
+/* Season view */
+.season-form{padding:20px 16px;display:flex;flex-direction:column;gap:16px}
+.season-form h2{font-size:20px;color:var(--primary);text-align:center}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;color:var(--text2);font-weight:600}
+.field input[type=number]{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-size:16px;width:100%;outline:none}
+.field input[type=number]:focus{border-color:var(--primary)}
+.field input[type=text]{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-size:14px;width:100%;outline:none}
+.field input[type=text]:focus{border-color:var(--primary)}
+.season-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.season-btn{border:1px solid var(--border);border-radius:var(--radius);padding:12px 0;font-size:16px;background:var(--surface);color:var(--text);cursor:pointer;text-align:center;font-weight:600}
+.season-btn.selected{background:var(--primary);color:#fff;border-color:var(--primary)}
+.hint{font-size:12px;color:var(--text2);line-height:1.5;background:var(--surface);border-radius:var(--radius);padding:10px 12px}
+.hint a{color:var(--primary);text-decoration:none}
+
+/* Anime list */
+.search-bar{padding:10px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+.search-bar input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:8px 14px;color:var(--text);font-size:14px;outline:none}
+.search-bar input:focus{border-color:var(--primary)}
+.anime-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);min-height:56px}
+.anime-item.missed{background:var(--warn-bg)}
+.anime-item.missed .anime-title{color:#ff6b6b}
+.anime-check{width:22px;height:22px;accent-color:var(--primary);flex-shrink:0;cursor:pointer}
+.anime-info{flex:1;min-width:0}
+.anime-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.anime-meta{font-size:12px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
+.anime-missed-icon{color:#ff6b6b}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.badge.free-all{background:var(--free-all);color:var(--free-all-t)}
+.badge.premium-all{background:var(--premium);color:var(--premium-t)}
+.badge.danime-only{background:var(--danime);color:var(--danime-t)}
+.badge.first-and-latest{background:var(--first-latest);color:var(--first-latest-t)}
+.badge.first-only{background:var(--first);color:var(--first-t)}
+.badge.paid{background:var(--paid);color:var(--paid-t)}
+
+/* Weekly view */
+.weekly-list{padding-bottom:8px}
+.day-header{background:var(--surface2);padding:6px 12px;font-size:12px;font-weight:700;color:var(--text2);letter-spacing:1px;border-bottom:1px solid var(--border)}
+.now-marker{display:flex;align-items:center;gap:8px;padding:4px 12px;background:#1c2a1c;border-top:1px solid #4caf50;border-bottom:1px solid #4caf50}
+.now-marker span{font-size:11px;font-weight:700;color:#4caf50;white-space:nowrap}
+.now-marker::before,.now-marker::after{content:'';flex:1;height:1px;background:#4caf50;opacity:.4}
+.weekly-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;active:opacity:.7}
+.weekly-item:active{background:var(--surface)}
+.weekly-item.missed{background:var(--warn-bg)}
+.weekly-time{font-size:13px;font-weight:700;color:var(--text2);white-space:nowrap;min-width:42px}
+.weekly-info{flex:1;min-width:0}
+.weekly-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.weekly-title.missed{color:#ff6b6b}
+.weekly-sub{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
+.watched-count{font-size:12px;color:var(--text2);white-space:nowrap}
+.no-schedule{padding:8px 12px;font-size:12px;color:var(--text2)}
+
+/* Detail view */
+.detail{padding:16px}
+.detail-title{font-size:18px;font-weight:700;margin-bottom:12px;line-height:1.4}
+.detail-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.detail-label{font-size:13px;color:var(--text2);width:80px;flex-shrink:0}
+.detail-value{font-size:14px;flex:1}
+.detail-desc{font-size:13px;color:var(--text2);line-height:1.6;padding:12px 0;border-bottom:1px solid var(--border)}
+.counter{display:flex;align-items:center;gap:12px}
+.counter-val{font-size:22px;font-weight:700;min-width:32px;text-align:center}
+.counter-btn{background:var(--surface2);border:none;border-radius:8px;color:var(--text);font-size:20px;width:40px;height:40px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.counter-btn:active{background:var(--primary)}
+.missed-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+.missed-toggle-label{font-size:14px}
+.toggle-btn{padding:8px 18px;border-radius:20px;border:none;font-size:13px;font-weight:700;cursor:pointer}
+.toggle-btn.on{background:#b71c1c;color:#fff}
+.toggle-btn.off{background:var(--surface2);color:var(--text2)}
+
+/* Loading / Error */
+.loading{text-align:center;padding:40px 16px;color:var(--text2)}
+.spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{margin:16px;padding:12px;background:#311;border-radius:var(--radius);border:1px solid #622;color:#ff8a80;font-size:13px;line-height:1.5}
+.empty{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
+.count-label{font-size:12px;color:var(--text2);padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+
+// ── Constants ──────────────────────────────────────────────────────
+const SEASONS = { winter:'冬', spring:'春', summer:'夏', autumn:'秋' };
+const SEASON_KEYS = ['winter','spring','summer','autumn'];
+const WEEKDAYS = ['月','火','水','木','金','土','日'];
+const USER = { isPremium: true, hasDanime: false };
+
+// ── localStorage helpers ───────────────────────────────────────────
+const ls = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const proxyUrl = {
+  get: () => localStorage.getItem('nico_proxy_url') || '',
+  set: (v) => localStorage.setItem('nico_proxy_url', v.trim()),
+};
+const animeList = {
+  key: (y, s) => `nico_list_${y}_${s}`,
+  get: (y, s) => ls.get(animeList.key(y, s)) || [],
+  set: (y, s, v) => ls.set(animeList.key(y, s), v),
+};
+const animeState = {
+  key: (id) => `nico_state_${id}`,
+  get: (id) => ls.get(animeState.key(id)) || { enabled: false, watchedCount: 0, missedFlag: false },
+  set: (id, v) => ls.set(animeState.key(id), v),
+  patch: (id, patch) => animeState.set(id, { ...animeState.get(id), ...patch }),
+};
+const currentSeason = {
+  get: () => ls.get('nico_current') || defaultSeason(),
+  set: (v) => ls.set('nico_current', v),
+};
+
+function defaultSeason() {
+  const m = new Date().getMonth() + 1;
+  const s = m <= 3 ? 'winter' : m <= 6 ? 'spring' : m <= 9 ? 'summer' : 'autumn';
+  return { year: new Date().getFullYear(), season: s };
+}
+
+// ── Parser ─────────────────────────────────────────────────────────
+function parseNicoHtml(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // First: try to find JSON embedded in <script> tags (for CSR pages)
+  const jsonAnimes = tryParseJsonData(doc);
+  if (jsonAnimes && jsonAnimes.length > 0) return jsonAnimes;
+
+  // Fallback: scrape <a href="/detail/..."> links
+  const links = doc.querySelectorAll('a[href*="/detail/"]');
+  const result = [];
+  const seen = new Set();
+
+  for (const link of links) {
+    const href = link.getAttribute('href') || '';
+    const m = href.match(/\/detail\/([^/?#]+)/);
+    if (!m) continue;
+    const id = m[1];
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    // Use the closest container (li, article, section) for richer text
+    const container = link.closest('li, article, [class*="anime"], [class*="work"]') || link;
+    const text = container.textContent || '';
+    const parsed = parseAnimeText(text, id, href);
+    if (parsed) result.push(parsed);
+  }
+  return result;
+}
+
+function tryParseJsonData(doc) {
+  // Some pages embed JSON in <script type="application/json"> or window.__data__ etc.
+  for (const script of doc.querySelectorAll('script')) {
+    const t = script.textContent || '';
+    // Look for common patterns
+    const m = t.match(/(?:window\.__(?:data|props|state|initialState)\s*=\s*|__NEXT_DATA__\s*=\s*)(\{.+\})/s);
+    if (m) {
+      try {
+        const obj = JSON.parse(m[1]);
+        const animes = extractFromJsonObj(obj);
+        if (animes && animes.length > 0) return animes;
+      } catch {}
+    }
+  }
+  return null;
+}
+
+function extractFromJsonObj(obj, depth = 0) {
+  if (depth > 6 || !obj || typeof obj !== 'object') return null;
+  // Look for arrays that look like anime lists
+  if (Array.isArray(obj)) {
+    if (obj.length > 0 && obj[0] && (obj[0].title || obj[0].name) && (obj[0].id || obj[0].workId)) {
+      return obj.map(item => jsonItemToAnime(item)).filter(Boolean);
+    }
+    for (const el of obj) {
+      const r = extractFromJsonObj(el, depth + 1);
+      if (r) return r;
+    }
+  } else {
+    for (const val of Object.values(obj)) {
+      const r = extractFromJsonObj(val, depth + 1);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+function jsonItemToAnime(item) {
+  const id = String(item.id || item.workId || '');
+  const title = item.title || item.name || '';
+  if (!id || !title) return null;
+  // Best-effort field mapping; actual field names vary
+  return {
+    id, title,
+    nico_douga: null,
+    free_type: 'paid',
+    is_premium_unlimited: false,
+    requires_danime: false,
+    description: item.description || item.summary || '',
+  };
+}
+
+function parseAnimeText(text, id, href) {
+  if (!text.trim()) return null;
+
+  // ── nico_douga: "ニコ動 M/D(曜) HH:MM" ───────────────────────
+  // Note: ニコ動 appears BEFORE ニコ生 in the text; stop at ニコ生
+  const nicoPart = text.split('ニコ生')[0];
+  const ndMatch = nicoPart.match(/ニコ動\s+(\d{1,2})\/(\d{1,2})\s*\(([月火水木金土日])\)\s*(\d{2}:\d{2})/);
+  let nico_douga = null;
+  if (ndMatch) {
+    nico_douga = {
+      month: parseInt(ndMatch[1], 10),
+      day:   parseInt(ndMatch[2], 10),
+      weekday: ndMatch[3],
+      time: ndMatch[4],
+    };
+  }
+
+  // ── free_type ─────────────────────────────────────────────────
+  let free_type = 'paid';
+  const nicoFreeM = text.match(/\*\s*ニコニコ\s*[/／]\s*([^*\n\r]{1,40})/);
+  if (nicoFreeM) {
+    const ft = nicoFreeM[1];
+    if (ft.includes('1話・最新話無料') || ft.includes('1話・最新話')) free_type = 'first_and_latest_free';
+    else if (ft.includes('最新話無料') || ft.includes('最新話')) free_type = 'latest_free';
+    else if (ft.includes('1話無料') || ft.includes('1話')) free_type = 'first_free';
+  }
+
+  // ── flags ─────────────────────────────────────────────────────
+  const is_premium_unlimited = /プレミアム会員\s*見放題|見放題/.test(text);
+  const requires_danime = /\*\s*dアニメストア\(支店\)/.test(text);
+
+  // ── title ─────────────────────────────────────────────────────
+  // Format: [新作|継続] TITLE [無料あり] TITLE YYYY年...
+  let titleSrc = text;
+  // Cut at year marker
+  titleSrc = titleSrc.replace(/\d{4}年.*$/s, '').trim();
+  // Remove leading status tags
+  titleSrc = titleSrc.replace(/^(?:新作|継続|再放送)\s+/, '');
+  // Remove 無料あり badge
+  titleSrc = titleSrc.replace(/\s*無料あり\s*/g, ' ').trim();
+  // Title appears twice: "TITLE TITLE" → deduplicate
+  const dupM = titleSrc.match(/^(.+?)\s+\1$/);
+  const title = dupM ? dupM[1].trim() : titleSrc.trim();
+
+  // ── description ───────────────────────────────────────────────
+  let description = '';
+  // Text after the last "* Platform" section
+  const lastStar = text.lastIndexOf('* ');
+  if (lastStar !== -1) {
+    const afterStar = text.slice(lastStar);
+    // Skip the platform name itself (e.g. "* dアニメストア(支店) description here")
+    const descM = afterStar.match(/\*\s*[^\s][^\n\r]{0,30}?\s+([\s\S]+)/);
+    if (descM) description = descM[1].trim();
+  }
+
+  if (!title) return null;
+  return { id, title, nico_douga, free_type, is_premium_unlimited, requires_danime, description };
+}
+
+// ── Business logic ─────────────────────────────────────────────────
+function judgeWatchable(anime) {
+  if (anime.free_type === 'latest_free') return 'free_all';
+  if (anime.is_premium_unlimited && USER.isPremium) return 'premium_all';
+  if (anime.requires_danime && !USER.hasDanime) return 'danime_only';
+  if (anime.free_type === 'first_and_latest_free') return 'first_and_latest_free';
+  if (anime.free_type === 'first_free') return 'first_only';
+  return 'paid';
+}
+
+const BADGE_INFO = {
+  free_all:              { label:'全話無料',        cls:'free-all' },
+  premium_all:           { label:'P見放題',         cls:'premium-all' },
+  danime_only:           { label:'dアニメのみ',     cls:'danime-only' },
+  first_and_latest_free: { label:'1話・最新無料',   cls:'first-and-latest' },
+  first_only:            { label:'1話無料',         cls:'first-only' },
+  paid:                  { label:'有料',            cls:'paid' },
+};
+
+function badgeHtml(watchable) {
+  const b = BADGE_INFO[watchable] || BADGE_INFO.paid;
+  return `<span class="badge ${b.cls}">${b.label}</span>`;
+}
+
+function weekdayIdx(wd) { return WEEKDAYS.indexOf(wd); }
+
+function sortWeekly(animes) {
+  return [...animes].sort((a, b) => {
+    const wdA = a.nico_douga ? weekdayIdx(a.nico_douga.weekday) : 99;
+    const wdB = b.nico_douga ? weekdayIdx(b.nico_douga.weekday) : 99;
+    if (wdA !== wdB) return wdA - wdB;
+    const tA = a.nico_douga ? a.nico_douga.time : '99:99';
+    const tB = b.nico_douga ? b.nico_douga.time : '99:99';
+    if (tA !== tB) return tA < tB ? -1 : 1;
+    const dA = a.nico_douga ? a.nico_douga.month * 100 + a.nico_douga.day : 9999;
+    const dB = b.nico_douga ? b.nico_douga.month * 100 + b.nico_douga.day : 9999;
+    return dA - dB;
+  });
+}
+
+function getCurrentPosition() {
+  const now = new Date();
+  const jsDay = now.getDay(); // 0=Sun
+  const idx = (jsDay + 6) % 7; // Mon=0
+  const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  return { idx, time };
+}
+
+// ── App State ──────────────────────────────────────────────────────
+const S = {
+  view: 'season',
+  tab: 'list',
+  ...currentSeason.get(),
+  list: [],
+  selectedId: null,
+  search: '',
+  loading: false,
+  error: null,
+};
+
+function loadList() {
+  S.list = animeList.get(S.year, S.season);
+}
+
+// ── Render ─────────────────────────────────────────────────────────
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = buildView();
+  // Restore search input focus / value
+  const si = app.querySelector('.search-input');
+  if (si) { si.value = S.search; }
+}
+
+function buildView() {
+  if (S.view === 'season') return buildSeason();
+  if (S.view === 'detail') return buildDetail();
+  return buildMain();
+}
+
+function buildSeason() {
+  const cur = currentSeason.get();
+  const year = S.year || cur.year;
+  const season = S.season || cur.season;
+  const proxy = proxyUrl.get();
+
+  const hasData = animeList.get(year, season).length > 0;
+
+  return `
+<div class="header"><span class="header-title">🎌 ニコアニメ週間予定</span></div>
+<div class="content">
+<div class="season-form">
+  <h2>シーズン選択</h2>
+
+  <div class="field">
+    <label>プロキシURL (Cloudflare Workers)</label>
+    <input type="text" id="proxy-input" placeholder="https://xxx.workers.dev" value="${esc(proxy)}">
+    <small style="color:var(--text2);font-size:11px;margin-top:4px">未設定の場合は下記の手順でデプロイしてください</small>
+  </div>
+
+  <div class="field">
+    <label>年</label>
+    <input type="number" id="year-input" value="${year}" min="2020" max="2040">
+  </div>
+
+  <div class="field">
+    <label>シーズン</label>
+    <div class="season-btns">
+      ${SEASON_KEYS.map(k => `<button class="season-btn ${season === k ? 'selected' : ''}" data-action="sel-season" data-season="${k}">${SEASONS[k]}</button>`).join('')}
+    </div>
+  </div>
+
+  ${S.error ? `<div class="error-box">${esc(S.error)}</div>` : ''}
+
+  ${S.loading ? `<div class="loading"><div class="spinner"></div><br>取得中...</div>` : `
+  <button class="btn btn-primary" data-action="fetch" style="width:100%;padding:14px;font-size:16px">
+    ${hasData ? '🔄 再取得（更新）' : '📥 データを取得する'}
+  </button>
+  ${hasData ? `<button class="btn btn-ghost" data-action="goto-main" style="width:100%;padding:14px;font-size:15px">→ 前回データで続ける（${animeList.get(year,season).length}作品）</button>` : ''}
+  `}
+
+  <div class="hint">
+    <strong>Cloudflare Workers デプロイ手順</strong><br>
+    1. <a href="https://dash.cloudflare.com" target="_blank">dash.cloudflare.com</a> にアクセス（無料アカウントでOK）<br>
+    2. Workers &amp; Pages → Create → Hello World テンプレートを選択<br>
+    3. エディタを開き、<code>worker.js</code> の内容を貼り付けて保存・デプロイ<br>
+    4. 表示される <code>https://xxx.workers.dev</code> URLを上記に入力
+  </div>
+</div>
+</div>`;
+}
+
+function buildMain() {
+  const seasonLabel = `${S.year} ${SEASONS[S.season]}`;
+  const enabledCount = S.list.filter(a => animeState.get(a.id).enabled).length;
+
+  const tabBar = `
+<div class="tabbar">
+  <button class="tab ${S.tab === 'list' ? 'active' : ''}" data-action="tab" data-tab="list">
+    <span class="tab-icon">📋</span>全作品
+  </button>
+  <button class="tab ${S.tab === 'weekly' ? 'active' : ''}" data-action="tab" data-tab="weekly">
+    <span class="tab-icon">📅</span>週間予定
+  </button>
+</div>`;
+
+  const header = `
+<div class="header">
+  <button class="btn-icon" data-action="back-season">◀</button>
+  <span class="header-season" style="flex:1">${seasonLabel}・全${S.list.length}作 / 有効${enabledCount}</span>
+  ${S.loading ? '<span style="font-size:12px;color:var(--text2)">更新中…</span>' : `<button class="btn btn-ghost btn-sm" data-action="fetch">更新</button>`}
+</div>`;
+
+  if (S.loading && S.list.length === 0) {
+    return header + `<div class="content"><div class="loading"><div class="spinner"></div><br>取得中...</div></div>` + tabBar;
+  }
+
+  const body = S.tab === 'list' ? buildListView() : buildWeeklyView();
+  return header + body + tabBar;
+}
+
+function buildListView() {
+  const q = S.search.toLowerCase();
+  const filtered = q
+    ? S.list.filter(a => a.title.toLowerCase().includes(q))
+    : S.list;
+
+  return `
+<div class="content">
+  <div class="search-bar">
+    <input class="search-input" type="search" placeholder="タイトルで検索…" value="${esc(S.search)}" data-action="search">
+  </div>
+  ${S.error ? `<div class="error-box">${esc(S.error)}</div>` : ''}
+  ${filtered.length === 0 ? `<div class="empty">${S.list.length === 0 ? 'データがありません。シーズンを取得してください。' : '検索結果なし'}</div>` : ''}
+  ${filtered.map(a => buildAnimeItem(a)).join('')}
+</div>`;
+}
+
+function buildAnimeItem(anime) {
+  const st = animeState.get(anime.id);
+  const watchable = judgeWatchable(anime);
+  const nd = anime.nico_douga;
+  const schedule = nd ? `${nd.weekday} ${nd.time}` : '放送日未定';
+  const missed = st.missedFlag ? '⚠' : '';
+  return `
+<div class="anime-item${st.missedFlag ? ' missed' : ''}">
+  <input type="checkbox" class="anime-check" ${st.enabled ? 'checked' : ''} data-action="toggle-enable" data-id="${anime.id}">
+  <div class="anime-info" data-action="open-detail" data-id="${anime.id}" style="cursor:pointer">
+    <div class="anime-title">${missed ? `<span class="anime-missed-icon">⚠ </span>` : ''}${esc(anime.title)}</div>
+    <div class="anime-meta">${schedule} ${badgeHtml(watchable)} ${st.watchedCount > 0 ? `<span>${st.watchedCount}話視聴済</span>` : ''}</div>
+  </div>
+</div>`;
+}
+
+function buildWeeklyView() {
+  const enabled = S.list.filter(a => animeState.get(a.id).enabled);
+  const sorted = sortWeekly(enabled);
+
+  if (sorted.length === 0) {
+    return `<div class="content"><div class="empty">有効な作品がありません。<br>一覧タブでチェックを入れてください。</div></div>`;
+  }
+
+  const { idx: nowIdx, time: nowTime } = getCurrentPosition();
+  let nowInserted = false;
+  let html = '';
+  let currentDay = -1;
+
+  function maybeInsertNow(itemIdx, itemTime) {
+    if (nowInserted) return '';
+    const isAfterNow = itemIdx > nowIdx || (itemIdx === nowIdx && itemTime > nowTime);
+    if (!isAfterNow) return '';
+    nowInserted = true;
+    return `<div class="now-marker"><span>── 現在 ──</span></div>`;
+  }
+
+  for (const anime of sorted) {
+    const st = animeState.get(anime.id);
+    const nd = anime.nico_douga;
+    const wdIdx = nd ? weekdayIdx(nd.weekday) : 99;
+    const time = nd ? nd.time : '??:??';
+
+    if (wdIdx !== currentDay) {
+      // Check if "現在" should go before this day header
+      if (!nowInserted && nd && (wdIdx > nowIdx)) {
+        html += `<div class="now-marker"><span>── 現在 ──</span></div>`;
+        nowInserted = true;
+      }
+      currentDay = wdIdx;
+      const dayLabel = nd ? `${nd.weekday}曜日` : 'スケジュール未定';
+      html += `<div class="day-header">${dayLabel}</div>`;
+    }
+
+    // Insert 現在 marker between items within the same day
+    if (nd) html += maybeInsertNow(wdIdx, time);
+
+    const watchable = judgeWatchable(anime);
+    html += `
+<div class="weekly-item${st.missedFlag ? ' missed' : ''}" data-action="open-detail" data-id="${anime.id}">
+  <div class="weekly-time">${time}</div>
+  <div class="weekly-info">
+    <div class="weekly-title${st.missedFlag ? ' missed' : ''}">${st.missedFlag ? '⚠ ' : ''}${esc(anime.title)}</div>
+    <div class="weekly-sub">${badgeHtml(watchable)}<span class="watched-count">視聴済 ${st.watchedCount}話</span></div>
+  </div>
+</div>`;
+  }
+
+  // 現在 at end if not inserted
+  if (!nowInserted) {
+    html += `<div class="now-marker"><span>── 現在 ──</span></div>`;
+  }
+
+  return `<div class="content"><div class="weekly-list">${html}</div></div>`;
+}
+
+function buildDetail() {
+  const anime = S.list.find(a => a.id === S.selectedId);
+  if (!anime) return `<div class="header"><button class="btn-icon" data-action="back">◀ 戻る</button></div><div class="content"><div class="empty">作品が見つかりません</div></div>`;
+
+  const st = animeState.get(anime.id);
+  const watchable = judgeWatchable(anime);
+  const nd = anime.nico_douga;
+  const schedule = nd ? `${nd.weekday}曜日 ${nd.time} (${nd.month}/${nd.day})` : '放送日未定';
+
+  return `
+<div class="header">
+  <button class="btn-icon" data-action="back">◀</button>
+  <span style="flex:1;font-size:14px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${esc(anime.title)}</span>
+</div>
+<div class="content">
+<div class="detail">
+  <div class="detail-title">${esc(anime.title)}</div>
+
+  <div class="detail-row">
+    <span class="detail-label">配信スケジュール</span>
+    <span class="detail-value">${schedule}</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">視聴可否</span>
+    <span class="detail-value">${badgeHtml(watchable)} ${watchable === 'danime_only' ? '(未契約のため視聴不可)' : ''}</span>
+  </div>
+  <div class="detail-row">
+    <span class="detail-label">配信形態</span>
+    <span class="detail-value" style="font-size:12px;color:var(--text2)">
+      ${anime.free_type === 'paid' ? '有料のみ' : anime.free_type === 'latest_free' ? '全話無料' : anime.free_type === 'first_and_latest_free' ? '1話・最新話無料' : anime.free_type === 'first_free' ? '1話無料' : anime.free_type}
+      ${anime.is_premium_unlimited ? ' / プレミアム見放題' : ''}
+      ${anime.requires_danime ? ' / dアニメ支店あり' : ''}
+    </span>
+  </div>
+
+  ${anime.description ? `<div class="detail-desc">${esc(anime.description)}</div>` : ''}
+
+  <div class="detail-row" style="border:none;padding-top:16px">
+    <span class="detail-label">視聴済み話数</span>
+    <div class="counter">
+      <button class="counter-btn" data-action="watched-down" data-id="${anime.id}">▼</button>
+      <span class="counter-val" id="watched-val">${st.watchedCount}</span>
+      <button class="counter-btn" data-action="watched-up" data-id="${anime.id}">▲</button>
+    </div>
+  </div>
+
+  <div class="missed-toggle">
+    <span class="missed-toggle-label">⚠ 見逃しあり</span>
+    <button class="toggle-btn ${st.missedFlag ? 'on' : 'off'}" id="missed-btn" data-action="toggle-missed" data-id="${anime.id}">
+      ${st.missedFlag ? 'ON' : 'OFF'}
+    </button>
+  </div>
+
+  <div style="padding-top:8px">
+    <a href="https://anime.nicovideo.jp/detail/${anime.id}/" target="_blank"
+       style="color:var(--primary);font-size:13px;text-decoration:none">ニコニコで詳細を見る →</a>
+  </div>
+</div>
+</div>`;
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── Event Handling ─────────────────────────────────────────────────
+document.getElementById('app').addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const { action, id, season, tab } = el.dataset;
+
+  switch (action) {
+    case 'sel-season':
+      S.season = season;
+      render();
+      break;
+    case 'fetch':
+      doFetch();
+      break;
+    case 'goto-main':
+      loadList();
+      S.view = 'main';
+      S.tab = 'list';
+      currentSeason.set({ year: S.year, season: S.season });
+      render();
+      break;
+    case 'back-season':
+      S.view = 'season';
+      S.error = null;
+      render();
+      break;
+    case 'tab':
+      S.tab = tab;
+      render();
+      break;
+    case 'toggle-enable': {
+      const st = animeState.get(id);
+      animeState.patch(id, { enabled: !st.enabled });
+      render();
+      break;
+    }
+    case 'open-detail':
+      S.selectedId = id;
+      S.view = 'detail';
+      render();
+      break;
+    case 'back':
+      S.view = 'main';
+      render();
+      break;
+    case 'watched-up': {
+      const st = animeState.get(id);
+      animeState.patch(id, { watchedCount: st.watchedCount + 1 });
+      document.getElementById('watched-val').textContent = st.watchedCount + 1;
+      break;
+    }
+    case 'watched-down': {
+      const st = animeState.get(id);
+      if (st.watchedCount > 0) {
+        animeState.patch(id, { watchedCount: st.watchedCount - 1 });
+        document.getElementById('watched-val').textContent = st.watchedCount - 1;
+      }
+      break;
+    }
+    case 'toggle-missed': {
+      const st = animeState.get(id);
+      animeState.patch(id, { missedFlag: !st.missedFlag });
+      const btn = document.getElementById('missed-btn');
+      const newVal = !st.missedFlag;
+      btn.textContent = newVal ? 'ON' : 'OFF';
+      btn.className = `toggle-btn ${newVal ? 'on' : 'off'}`;
+      break;
+    }
+  }
+});
+
+// Checkbox は change イベントで処理（clickが二重発火するため）
+document.getElementById('app').addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset.action === 'toggle-enable') {
+    animeState.patch(el.dataset.id, { enabled: el.checked });
+    // Re-render header count without full re-render
+    const header = document.querySelector('.header-season');
+    if (header) {
+      const enabledCount = S.list.filter(a => animeState.get(a.id).enabled).length;
+      header.textContent = `${S.year} ${SEASONS[S.season]}・全${S.list.length}作 / 有効${enabledCount}`;
+    }
+  }
+});
+
+// Year input
+document.getElementById('app').addEventListener('input', e => {
+  const el = e.target;
+  if (el.id === 'year-input') {
+    S.year = parseInt(el.value, 10) || S.year;
+  }
+  if (el.dataset.action === 'search') {
+    S.search = el.value;
+    // Debounced re-render for search
+    clearTimeout(el._t);
+    el._t = setTimeout(() => render(), 150);
+  }
+});
+
+// Also handle proxy URL changes
+document.getElementById('app').addEventListener('blur', e => {
+  if (e.target.id === 'proxy-input') {
+    proxyUrl.set(e.target.value);
+  }
+}, true);
+
+// ── Fetch Season ───────────────────────────────────────────────────
+async function doFetch() {
+  // Save proxy URL from input if on season view
+  const proxyInput = document.getElementById('proxy-input');
+  if (proxyInput) proxyUrl.set(proxyInput.value);
+
+  const yearInput = document.getElementById('year-input');
+  if (yearInput) S.year = parseInt(yearInput.value, 10) || S.year;
+
+  const url = proxyUrl.get();
+  if (!url) {
+    S.error = 'プロキシURLを設定してください。Cloudflare Workersをデプロイし、上記フィールドにURLを入力してください。';
+    render();
+    return;
+  }
+
+  const targetUrl = `https://anime.nicovideo.jp/period/${S.year}-${S.season}.html`;
+  const fetchUrl = `${url.replace(/\/$/, '')}?url=${encodeURIComponent(targetUrl)}`;
+
+  S.loading = true;
+  S.error = null;
+  render();
+
+  try {
+    const res = await fetch(fetchUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const html = await res.text();
+    const newList = parseNicoHtml(html);
+
+    if (newList.length === 0) {
+      throw new Error('作品を取得できませんでした。ページ構造が変わった可能性があります。');
+    }
+
+    // Merge: preserve existing state, add new entries
+    const existing = animeList.get(S.year, S.season);
+    const existingIds = new Set(existing.map(a => a.id));
+    // Update existing entries data but keep state
+    const merged = newList.map(a => {
+      if (!existingIds.has(a.id)) {
+        // New anime: state already defaults to enabled=false
+      }
+      return a;
+    });
+
+    animeList.set(S.year, S.season, merged);
+    currentSeason.set({ year: S.year, season: S.season });
+    S.list = merged;
+    S.view = 'main';
+    S.tab = 'list';
+    S.loading = false;
+    S.error = null;
+    render();
+  } catch (err) {
+    S.loading = false;
+    S.error = `取得エラー: ${err.message}`;
+    render();
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────
+function init() {
+  // Service Worker registration
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+
+  // Restore last session if data exists
+  const saved = currentSeason.get();
+  S.year = saved.year;
+  S.season = saved.season;
+  S.list = animeList.get(S.year, S.season);
+
+  if (S.list.length > 0) {
+    S.view = 'main';
+    S.tab = 'weekly';
+  } else {
+    S.view = 'season';
+  }
+
+  render();
+
+  // Update 現在 marker every minute
+  setInterval(() => {
+    if (S.view === 'main' && S.tab === 'weekly' && !S.loading) render();
+  }, 60000);
+}
+
+init();
+</script>
+</body>
+</html>
