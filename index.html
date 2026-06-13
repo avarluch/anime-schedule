@@ -382,6 +382,7 @@ const S = {
   loading: false,
   error: null,
   showAddForm: false,
+  showSettings: false,
 };
 
 function loadList() {
@@ -481,6 +482,7 @@ function buildMain() {
   <button class="btn-icon" data-action="back-season">◀</button>
   <span class="header-season" style="flex:1">${seasonLabel}・全${S.list.length}作 / 有効${enabledCount}</span>
   ${S.loading ? '<span style="font-size:12px;color:var(--text2)">更新中…</span>' : `<button class="btn btn-ghost btn-sm" data-action="fetch">更新</button>`}
+  <button class="btn-icon" data-action="open-settings" title="データ管理">⚙</button>
 </div>`;
 
   if (S.loading && S.list.length === 0) {
@@ -488,7 +490,7 @@ function buildMain() {
   }
 
   const body = S.tab === 'list' ? buildListView() : buildWeeklyView();
-  return header + body + tabBar;
+  return header + body + tabBar + (S.showSettings ? buildSettingsModal() : '');
 }
 
 function buildListView() {
@@ -705,6 +707,101 @@ function buildDetail() {
 </div>`;
 }
 
+// ── エクスポート / インポート / 視聴記録 ──────────────────────────
+function downloadFile(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+function exportAllData() {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('nico')) {
+      try { data[key] = JSON.parse(localStorage.getItem(key)); }
+      catch { data[key] = localStorage.getItem(key); }
+    }
+  }
+  const json = JSON.stringify(data, null, 2);
+  downloadFile(`anime-schedule-backup-${todayStr()}.json`, json, 'application/json');
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data !== 'object' || Array.isArray(data)) throw new Error();
+      for (const [key, value] of Object.entries(data)) {
+        localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+      }
+      alert('インポートが完了しました。再読み込みします。');
+      location.reload();
+    } catch {
+      alert('インポートに失敗しました。ファイル形式を確認してください。');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportViewHistory() {
+  const { year, season } = S;
+  const seasonLabel = `${year}年${SEASONS[season]}`;
+  const enabled = S.list.filter(a => animeState.get(a.id).enabled);
+  const sorted = sortWeekly(enabled);
+
+  const WDAY = { 月:'月曜', 火:'火曜', 水:'水曜', 木:'木曜', 金:'金曜', 土:'土曜', 日:'日曜' };
+
+  let text = `${seasonLabel}アニメ 視聴記録\n`;
+  text += '='.repeat(32) + '\n';
+  for (const anime of sorted) {
+    const st = animeState.get(anime.id);
+    const nd = anime.nico_douga;
+    const sched = nd ? `${WDAY[nd.weekday] || nd.weekday} ${nd.time}` : '放送日未定';
+    text += `${anime.title} / ${sched} / ${st.watchedCount}話視聴済み\n`;
+  }
+
+  const safeSeason = season === 'winter' ? 'winter' : season === 'spring' ? 'spring'
+    : season === 'summer' ? 'summer' : 'autumn';
+  downloadFile(`anime-schedule-${year}${safeSeason}-${todayStr()}.txt`, text, 'text/plain');
+}
+
+function buildSettingsModal() {
+  return `
+<div class="modal-overlay" data-action="close-settings">
+<div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-header">
+    <span class="modal-title">⚙ データ管理</span>
+    <button class="modal-close" data-action="close-settings">✕</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button class="btn btn-ghost" data-action="export-data" style="width:100%;padding:14px;font-size:14px;text-align:left">
+      📤 全データをエクスポート<br><small style="color:var(--text2);font-weight:400">全シーズンの作品・状態をJSONで保存</small>
+    </button>
+    <label style="display:block;width:100%;padding:14px;font-size:14px;border:1px solid var(--primary);border-radius:6px;color:var(--primary);font-weight:600;cursor:pointer;box-sizing:border-box">
+      📥 データをインポート（復元）<br><small style="color:var(--text2);font-weight:400">JSONファイルから復元（既存データ上書き）</small>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </label>
+    <div style="height:1px;background:var(--border);margin:2px 0"></div>
+    <button class="btn btn-ghost" data-action="export-history" style="width:100%;padding:14px;font-size:14px;text-align:left">
+      📝 視聴記録を書き出す<br><small style="color:var(--text2);font-weight:400">現在のシーズンの有効作品をテキストで出力</small>
+    </button>
+  </div>
+</div>
+</div>`;
+}
+
 function esc(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -783,6 +880,22 @@ document.getElementById('app').addEventListener('click', e => {
       S.showAddForm = false;
       render();
       break;
+    case 'open-settings':
+      S.showSettings = true;
+      render();
+      break;
+    case 'close-settings':
+      S.showSettings = false;
+      render();
+      break;
+    case 'export-data':
+      exportAllData();
+      break;
+    case 'export-history':
+      exportViewHistory();
+      S.showSettings = false;
+      render();
+      break;
     case 'save-custom': {
       const titleEl = document.getElementById('add-title');
       const title = titleEl ? titleEl.value.trim() : '';
@@ -822,7 +935,7 @@ document.getElementById('app').addEventListener('click', e => {
   }
 });
 
-// チェックボックス: change イベントで処理（スクロール位置を維持するためDOM直接更新）
+// チェックボックス・ファイル入力: change イベントで処理
 document.getElementById('app').addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.action === 'toggle-enable') {
@@ -833,6 +946,9 @@ document.getElementById('app').addEventListener('change', e => {
       const enabledCount = S.list.filter(a => animeState.get(a.id).enabled).length;
       header.textContent = `${S.year} ${SEASONS[S.season]}・全${S.list.length}作 / 有効${enabledCount}`;
     }
+  }
+  if (el.id === 'import-file' && el.files && el.files[0]) {
+    importData(el.files[0]);
   }
 });
 
