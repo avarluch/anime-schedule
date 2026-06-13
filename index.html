@@ -77,6 +77,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .anime-meta{font-size:12px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
 .anime-missed-icon{color:#ff6b6b}
 .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.badge.all-free{background:#1b5e20;color:#69f0ae}
 .badge.latest-free{background:var(--free-all);color:var(--free-all-t)}
 .badge.first-and-latest{background:var(--first-latest);color:var(--first-latest-t)}
 .badge.first-free{background:var(--first);color:var(--first-t)}
@@ -288,7 +289,8 @@ function parseAnimeText(text, id, href) {
   // ── free_type ─────────────────────────────────────────────────
   // HTMLのtextContentには<li>の「*」は含まれないため、キーワード直接マッチ
   let free_type = 'paid';
-  if (/1話[・･]最新話無料/.test(text)) free_type = 'first_and_latest_free';
+  if (/全話無料/.test(text)) free_type = 'all_free';
+  else if (/1話[・･]最新話無料/.test(text)) free_type = 'first_and_latest_free';
   else if (/最新話無料/.test(text)) free_type = 'latest_free';
   else if (/1話無料/.test(text)) free_type = 'first_free';
 
@@ -328,7 +330,8 @@ function parseAnimeText(text, id, href) {
 function getAnimeTags(anime) {
   const tags = [];
   // 無料形態タグ（排他的）
-  if (anime.free_type === 'first_and_latest_free') tags.push({ label: '1話・最新話無料', cls: 'first-and-latest' });
+  if (anime.free_type === 'all_free')              tags.push({ label: '全話無料',        cls: 'all-free' });
+  else if (anime.free_type === 'first_and_latest_free') tags.push({ label: '1話・最新話無料', cls: 'first-and-latest' });
   else if (anime.free_type === 'latest_free')      tags.push({ label: '最新話無料',      cls: 'latest-free' });
   else if (anime.free_type === 'first_free')       tags.push({ label: '1話無料',         cls: 'first-free' });
   else if (anime.free_type === 'other')            tags.push({ label: 'その他',          cls: 'other' });
@@ -625,6 +628,7 @@ function buildAddForm() {
       <option value="first_free">1話無料</option>
       <option value="first_and_latest_free">1話・最新話無料</option>
       <option value="latest_free">最新話無料</option>
+      <option value="all_free">全話無料</option>
       <option value="other">その他（ニコニコ以外）</option>
     </select>
   </div>
