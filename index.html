@@ -895,11 +895,13 @@ document.getElementById('app').addEventListener('click', e => {
     case 'open-detail':
       S.selectedId = id;
       S.view = 'detail';
+      history.pushState({ modal: 'detail' }, '');
       render();
       break;
     case 'back':
       S.view = 'main';
-      render();
+      if (history.state && history.state.modal) history.back();
+      else render();
       break;
     case 'watched-up': {
       const st = animeState.get(id);
@@ -926,24 +928,28 @@ document.getElementById('app').addEventListener('click', e => {
     }
     case 'open-add-form':
       S.showAddForm = true;
+      history.pushState({ modal: 'add-form' }, '');
       render();
       break;
     case 'close-add-form':
       // バックドロップ(モーダル外)タップ or ✕ボタンのみ閉じる
       if (!e.target.closest('.modal') || el.classList.contains('modal-close')) {
         S.showAddForm = false;
-        render();
+        if (history.state && history.state.modal) history.back();
+        else render();
       }
       break;
     case 'open-settings':
       S.showSettings = true;
+      history.pushState({ modal: 'settings' }, '');
       render();
       break;
     case 'close-settings':
       // バックドロップ(モーダル外)タップ or ✕ボタンのみ閉じる
       if (!e.target.closest('.modal') || el.classList.contains('modal-close')) {
         S.showSettings = false;
-        render();
+        if (history.state && history.state.modal) history.back();
+        else render();
       }
       break;
     case 'export-data':
@@ -1028,6 +1034,14 @@ document.getElementById('app').addEventListener('input', e => {
   }
 });
 
+// Android 戻るボタン / ブラウザ戻る → モーダル・詳細画面を閉じる
+window.addEventListener('popstate', () => {
+  if (S.showAddForm)  { S.showAddForm = false;  render(); return; }
+  if (S.showSettings) { S.showSettings = false; render(); return; }
+  if (S.view === 'detail') { S.view = 'main'; render(); return; }
+  // それ以外（通常ページ遷移）は何もしない
+});
+
 // Also handle proxy URL changes
 document.getElementById('app').addEventListener('blur', e => {
   if (e.target.id === 'proxy-input') {
@@ -1101,7 +1115,7 @@ function init() {
   const saved = currentSeason.get();
   S.year = saved.year;
   S.season = saved.season;
-  S.list = animeList.get(S.year, S.season);
+  loadList(); // sanitizeTitle も適用される
 
   if (S.list.length > 0) {
     S.view = 'main';
