@@ -299,17 +299,48 @@ function parseAnimeText(text, id, href) {
   const requires_danime = /dアニメストア[（(]支店[)）]/.test(text);
 
   // ── title ─────────────────────────────────────────────────────
-  // Format: [新作|継続] TITLE [無料あり] TITLE YYYY年...
-  let titleSrc = text;
-  // Cut at year marker
-  titleSrc = titleSrc.replace(/\d{4}年.*$/s, '').trim();
-  // Remove leading status tags
-  titleSrc = titleSrc.replace(/^(?:新作|継続|再放送)\s+/, '');
-  // Remove 無料あり badge
-  titleSrc = titleSrc.replace(/\s*無料あり\s*/g, ' ').trim();
-  // Title appears twice: "TITLE TITLE" → deduplicate
-  const dupM = titleSrc.match(/^(.+?)\s+\1$/);
-  const title = dupM ? dupM[1].trim() : titleSrc.trim();
+  // スケジュール情報(ニコ動/ニコ生)より前を作業域に
+  const schedIdx = text.search(/ニコ動|ニコ生/);
+  const beforeSched = schedIdx !== -1 ? text.slice(0, schedIdx) : text;
+  let titleArea = beforeSched
+    .replace(/^(?:新作|継続|再放送)\s+/, '')
+    .replace(/\s*無料あり\s*/g, ' ')
+    .trim();
+
+  // 単語単位スキャン: 先頭Nワードが後続テキストの先頭でも繰り返すなら、それがタイトル
+  // 正規表現より予測しやすく、補足テキスト混入にも強い
+  let title = '';
+  const tw = titleArea.split(/\s+/).filter(Boolean);
+  for (let n = 1; n <= Math.ceil(tw.length / 2); n++) {
+    const cand = tw.slice(0, n).join(' ');
+    const rest = tw.slice(n).join(' ');
+    // rest がちょうど cand か、cand+空白 で始まる → タイトル確定
+    if (rest === cand || rest.startsWith(cand + ' ')) {
+      title = cand;
+      break;
+    }
+  }
+
+  if (!title) {
+    // ノイズ除去して先頭部分をタイトルとする
+    title = titleArea
+      .replace(/\d{4}[\/年][\s\S]*$/s, '')              // YYYY/ or YYYY年 以降
+      .replace(/[〜～][\s\S]*$/s, '')                     // ～ 以降
+      .replace(/\d+\/\d+\s*\([月火水木金土日]\)[\s\S]*$/g, '') // M/D(曜) 以降
+      .replace(/TOKYO\s*MX[\s\S]*$/g, '')                // 放送局名以降
+      .replace(/ほかにて[\s\S]*$/g, '')
+      .replace(/放送開始[\s\S]*$/g, '')
+      .trim();
+  }
+
+  // 安全弁 — 空か短すぎる場合は先頭40文字
+  if (!title || title.length < 2) title = titleArea.slice(0, 40).trim();
+
+  // メタデータの混入があれば直前まで切り捨て
+  for (const w of ['ニコ動', 'ニコ生', 'ニコニコ', 'dアニメストア', 'プレミアム会員']) {
+    const i = title.indexOf(w);
+    if (i !== -1) title = title.slice(0, i).trim();
+  }
 
   // ── description ───────────────────────────────────────────────
   let description = '';
