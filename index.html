@@ -587,7 +587,7 @@ function buildWeeklyView() {
 function buildAddForm() {
   return `
 <div class="modal-overlay" data-action="close-add-form">
-<div class="modal" onclick="event.stopPropagation()">
+<div class="modal">
   <div class="modal-header">
     <span class="modal-title">アニメを手動追加</span>
     <button class="modal-close" data-action="close-add-form">✕</button>
@@ -780,7 +780,7 @@ function exportViewHistory() {
 function buildSettingsModal() {
   return `
 <div class="modal-overlay" data-action="close-settings">
-<div class="modal" onclick="event.stopPropagation()">
+<div class="modal">
   <div class="modal-header">
     <span class="modal-title">⚙ データ管理</span>
     <button class="modal-close" data-action="close-settings">✕</button>
@@ -877,16 +877,22 @@ document.getElementById('app').addEventListener('click', e => {
       render();
       break;
     case 'close-add-form':
-      S.showAddForm = false;
-      render();
+      // バックドロップ(モーダル外)タップ or ✕ボタンのみ閉じる
+      if (!e.target.closest('.modal') || el.classList.contains('modal-close')) {
+        S.showAddForm = false;
+        render();
+      }
       break;
     case 'open-settings':
       S.showSettings = true;
       render();
       break;
     case 'close-settings':
-      S.showSettings = false;
-      render();
+      // バックドロップ(モーダル外)タップ or ✕ボタンのみ閉じる
+      if (!e.target.closest('.modal') || el.classList.contains('modal-close')) {
+        S.showSettings = false;
+        render();
+      }
       break;
     case 'export-data':
       exportAllData();
