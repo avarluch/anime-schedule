@@ -125,6 +125,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .error-box{margin:16px;padding:12px;background:#311;border-radius:var(--radius);border:1px solid #622;color:#ff8a80;font-size:13px;line-height:1.5}
 .empty{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
 .count-label{font-size:12px;color:var(--text2);padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
+.badge.custom{background:#37474f;color:#b0bec5}
+
+/* Add anime modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-width:600px;padding:20px 16px 32px;max-height:88vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.modal-title{font-size:16px;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:0 4px}
+select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;color:var(--text);font-size:14px;width:100%;outline:none;-webkit-appearance:none;appearance:none}
+select:focus{border-color:var(--primary)}
+.form-row{display:flex;gap:8px}
+.form-row .field{flex:1}
+.add-fab{position:fixed;bottom:70px;right:16px;max-width:600px;background:var(--primary);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:28px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:90;display:flex;align-items:center;justify-content:center}
+.add-fab:active{background:var(--primary-dark)}
 </style>
 </head>
 <body>
@@ -271,18 +285,15 @@ function parseAnimeText(text, id, href) {
   }
 
   // ── free_type ─────────────────────────────────────────────────
+  // HTMLのtextContentには<li>の「*」は含まれないため、キーワード直接マッチ
   let free_type = 'paid';
-  const nicoFreeM = text.match(/\*\s*ニコニコ\s*[/／]\s*([^*\n\r]{1,40})/);
-  if (nicoFreeM) {
-    const ft = nicoFreeM[1];
-    if (ft.includes('1話・最新話無料') || ft.includes('1話・最新話')) free_type = 'first_and_latest_free';
-    else if (ft.includes('最新話無料') || ft.includes('最新話')) free_type = 'latest_free';
-    else if (ft.includes('1話無料') || ft.includes('1話')) free_type = 'first_free';
-  }
+  if (/1話[・･]最新話無料/.test(text)) free_type = 'first_and_latest_free';
+  else if (/最新話無料/.test(text)) free_type = 'latest_free';
+  else if (/1話無料/.test(text)) free_type = 'first_free';
 
   // ── flags ─────────────────────────────────────────────────────
-  const is_premium_unlimited = /プレミアム会員\s*見放題|見放題/.test(text);
-  const requires_danime = /\*\s*dアニメストア\(支店\)/.test(text);
+  const is_premium_unlimited = /プレミアム会員\s*見放題/.test(text);
+  const requires_danime = /dアニメストア[（(]支店[)）]/.test(text);
 
   // ── title ─────────────────────────────────────────────────────
   // Format: [新作|継続] TITLE [無料あり] TITLE YYYY年...
@@ -370,6 +381,7 @@ const S = {
   search: '',
   loading: false,
   error: null,
+  showAddForm: false,
 };
 
 function loadList() {
@@ -379,10 +391,17 @@ function loadList() {
 // ── Render ─────────────────────────────────────────────────────────
 function render() {
   const app = document.getElementById('app');
+  // スクロール位置を保存
+  const oldContent = app.querySelector('.content');
+  const scrollTop = oldContent ? oldContent.scrollTop : 0;
+  const preserveScroll = S.view === 'main';
+
   app.innerHTML = buildView();
-  // Restore search input focus / value
-  const si = app.querySelector('.search-input');
-  if (si) { si.value = S.search; }
+
+  if (preserveScroll && scrollTop > 0) {
+    const newContent = app.querySelector('.content');
+    if (newContent) newContent.scrollTop = scrollTop;
+  }
 }
 
 function buildView() {
@@ -473,20 +492,19 @@ function buildMain() {
 }
 
 function buildListView() {
-  const q = S.search.toLowerCase();
-  const filtered = q
-    ? S.list.filter(a => a.title.toLowerCase().includes(q))
-    : S.list;
-
   return `
 <div class="content">
   <div class="search-bar">
-    <input class="search-input" type="search" placeholder="タイトルで検索…" value="${esc(S.search)}" data-action="search">
+    <input class="search-input" type="search" placeholder="タイトルで検索…" value="${esc(S.search)}" data-action="search" autocomplete="off">
   </div>
   ${S.error ? `<div class="error-box">${esc(S.error)}</div>` : ''}
-  ${filtered.length === 0 ? `<div class="empty">${S.list.length === 0 ? 'データがありません。シーズンを取得してください。' : '検索結果なし'}</div>` : ''}
-  ${filtered.map(a => buildAnimeItem(a)).join('')}
-</div>`;
+  ${S.list.length === 0 ? `<div class="empty">データがありません。シーズンを取得してください。</div>` : ''}
+  <div id="anime-list-items">
+    ${S.list.map(a => buildAnimeItem(a)).join('')}
+  </div>
+</div>
+${S.showAddForm ? buildAddForm() : ''}
+<button class="add-fab" data-action="open-add-form" title="手動追加">＋</button>`;
 }
 
 function buildAnimeItem(anime) {
@@ -495,11 +513,12 @@ function buildAnimeItem(anime) {
   const nd = anime.nico_douga;
   const schedule = nd ? `${nd.weekday} ${nd.time}` : '放送日未定';
   const missed = st.missedFlag ? '⚠' : '';
+  // data-title はsearch用のフィルタリングに使用
   return `
-<div class="anime-item${st.missedFlag ? ' missed' : ''}">
+<div class="anime-item${st.missedFlag ? ' missed' : ''}" data-id="${anime.id}" data-title="${esc(anime.title.toLowerCase())}">
   <input type="checkbox" class="anime-check" ${st.enabled ? 'checked' : ''} data-action="toggle-enable" data-id="${anime.id}">
   <div class="anime-info" data-action="open-detail" data-id="${anime.id}" style="cursor:pointer">
-    <div class="anime-title">${missed ? `<span class="anime-missed-icon">⚠ </span>` : ''}${esc(anime.title)}</div>
+    <div class="anime-title">${missed ? `<span class="anime-missed-icon">⚠ </span>` : ''}${esc(anime.title)}${anime.custom ? ' <span class="badge custom">手動</span>' : ''}</div>
     <div class="anime-meta">${schedule} ${badgeHtml(watchable)} ${st.watchedCount > 0 ? `<span>${st.watchedCount}話視聴済</span>` : ''}</div>
   </div>
 </div>`;
@@ -563,6 +582,65 @@ function buildWeeklyView() {
   }
 
   return `<div class="content"><div class="weekly-list">${html}</div></div>`;
+}
+
+function buildAddForm() {
+  return `
+<div class="modal-overlay" data-action="close-add-form">
+<div class="modal" onclick="event.stopPropagation()">
+  <div class="modal-header">
+    <span class="modal-title">アニメを手動追加</span>
+    <button class="modal-close" data-action="close-add-form">✕</button>
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <label>タイトル *</label>
+    <input type="text" id="add-title" placeholder="アニメタイトル" autocomplete="off">
+  </div>
+
+  <div class="form-row" style="margin-bottom:12px">
+    <div class="field">
+      <label>曜日</label>
+      <select id="add-weekday">
+        <option value="">未定</option>
+        ${WEEKDAYS.map(w => `<option value="${w}">${w}曜日</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>時刻 (HH:MM)</label>
+      <input type="text" id="add-time" placeholder="02:15" maxlength="5" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="form-row" style="margin-bottom:12px">
+    <div class="field">
+      <label>月</label>
+      <input type="number" id="add-month" placeholder="4" min="1" max="12">
+    </div>
+    <div class="field">
+      <label>日</label>
+      <input type="number" id="add-day" placeholder="15" min="1" max="31">
+    </div>
+  </div>
+
+  <div class="field" style="margin-bottom:16px">
+    <label>配信形態</label>
+    <select id="add-freetype">
+      <option value="paid">有料のみ</option>
+      <option value="first_free">1話無料</option>
+      <option value="first_and_latest_free">1話・最新話無料</option>
+      <option value="latest_free">全話無料</option>
+    </select>
+  </div>
+
+  <div class="field" style="margin-bottom:16px">
+    <label>メモ（概要欄に表示）</label>
+    <input type="text" id="add-desc" placeholder="任意のメモ" autocomplete="off">
+  </div>
+
+  <button class="btn btn-primary" data-action="save-custom" style="width:100%;padding:14px;font-size:15px">追加する</button>
+</div>
+</div>`;
 }
 
 function buildDetail() {
@@ -664,12 +742,6 @@ document.getElementById('app').addEventListener('click', e => {
       S.tab = tab;
       render();
       break;
-    case 'toggle-enable': {
-      const st = animeState.get(id);
-      animeState.patch(id, { enabled: !st.enabled });
-      render();
-      break;
-    }
     case 'open-detail':
       S.selectedId = id;
       S.view = 'detail';
@@ -702,15 +774,57 @@ document.getElementById('app').addEventListener('click', e => {
       btn.className = `toggle-btn ${newVal ? 'on' : 'off'}`;
       break;
     }
+    case 'open-add-form':
+      S.showAddForm = true;
+      render();
+      break;
+    case 'close-add-form':
+      S.showAddForm = false;
+      render();
+      break;
+    case 'save-custom': {
+      const titleEl = document.getElementById('add-title');
+      const title = titleEl ? titleEl.value.trim() : '';
+      if (!title) { alert('タイトルを入力してください'); break; }
+
+      const wd = document.getElementById('add-weekday').value;
+      const timeVal = document.getElementById('add-time').value.trim();
+      const mo = parseInt(document.getElementById('add-month').value, 10) || 0;
+      const dy = parseInt(document.getElementById('add-day').value, 10) || 0;
+      const ft = document.getElementById('add-freetype').value;
+      const desc = document.getElementById('add-desc').value.trim();
+
+      const timeOk = /^\d{2}:\d{2}$/.test(timeVal);
+      const nico_douga = (wd && timeOk)
+        ? { weekday: wd, time: timeVal, month: mo || 1, day: dy || 1 }
+        : null;
+
+      const newAnime = {
+        id: `custom_${Date.now()}`,
+        title,
+        nico_douga,
+        free_type: ft,
+        is_premium_unlimited: false,
+        requires_danime: false,
+        description: desc,
+        custom: true,
+      };
+
+      S.list = [...S.list, newAnime];
+      animeList.set(S.year, S.season, S.list);
+      S.showAddForm = false;
+      render();
+      break;
+    }
   }
 });
 
-// Checkbox は change イベントで処理（clickが二重発火するため）
+// チェックボックス: change イベントで処理（スクロール位置を維持するためDOM直接更新）
 document.getElementById('app').addEventListener('change', e => {
   const el = e.target;
   if (el.dataset.action === 'toggle-enable') {
     animeState.patch(el.dataset.id, { enabled: el.checked });
-    // Re-render header count without full re-render
+    // ヘッダーの有効数だけ更新（full re-render 不要）
     const header = document.querySelector('.header-season');
     if (header) {
       const enabledCount = S.list.filter(a => animeState.get(a.id).enabled).length;
@@ -719,7 +833,7 @@ document.getElementById('app').addEventListener('change', e => {
   }
 });
 
-// Year input
+// 検索・年入力
 document.getElementById('app').addEventListener('input', e => {
   const el = e.target;
   if (el.id === 'year-input') {
@@ -727,9 +841,13 @@ document.getElementById('app').addEventListener('input', e => {
   }
   if (el.dataset.action === 'search') {
     S.search = el.value;
-    // Debounced re-render for search
-    clearTimeout(el._t);
-    el._t = setTimeout(() => render(), 150);
+    const q = el.value.toLowerCase().trim();
+    // DOMのshow/hideのみ（inputを置き換えずキーボードを維持）
+    const items = document.querySelectorAll('#anime-list-items .anime-item[data-id]');
+    items.forEach(item => {
+      const title = item.dataset.title || '';
+      item.style.display = !q || title.includes(q) ? '' : 'none';
+    });
   }
 });
 
@@ -773,16 +891,12 @@ async function doFetch() {
       throw new Error('作品を取得できませんでした。ページ構造が変わった可能性があります。');
     }
 
-    // Merge: preserve existing state, add new entries
+    // カスタム（手動追加）アニメを保持しつつ取得データとマージ
     const existing = animeList.get(S.year, S.season);
-    const existingIds = new Set(existing.map(a => a.id));
-    // Update existing entries data but keep state
-    const merged = newList.map(a => {
-      if (!existingIds.has(a.id)) {
-        // New anime: state already defaults to enabled=false
-      }
-      return a;
-    });
+    const customAnimes = existing.filter(a => a.custom === true);
+    const customIds = new Set(customAnimes.map(a => a.id));
+    // 取得データ + 既存カスタム（重複なし）
+    const merged = [...newList, ...customAnimes.filter(a => !newList.some(n => n.id === a.id))];
 
     animeList.set(S.year, S.season, merged);
     currentSeason.set({ year: S.year, season: S.season });
