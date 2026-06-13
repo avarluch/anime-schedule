@@ -416,8 +416,29 @@ const S = {
   showSettings: false,
 };
 
+// 旧コードで保存された壊れたタイトル（ニコ動/ニコ生以降が混入）を修正
+function sanitizeTitle(title) {
+  if (!title) return title;
+  // ニコ動/ニコ生より後ろを削除（最も確実な境界）
+  const cut = title.search(/ニコ動|ニコ生|ニコニコ\s*[/／]/);
+  if (cut > 0) title = title.slice(0, cut).trim();
+  // 日付パターン以降を除去（空白+YYYY/ or 空白+M/D(曜) が先行する場合のみ）
+  // ※ ～ の汎用除去はしない（タイトルに含まれる場合があるため）
+  title = title
+    .replace(/\s+\d{4}[\/年]\d[\s\S]*$/, '')              // YYYY/M or YYYY年M 以降
+    .replace(/\s+\d{1,2}\/\d{1,2}\s*\([月火水木金土日]\)[\s\S]*$/, '') // M/D(曜)以降
+    .replace(/\s+(?:TOKYO\s*MX|テレビ東京|MBS|TBS|フジ)[^\n]*$/, '')  // 放送局名以降
+    .replace(/\s+ほかにて[\s\S]*$/, '')                    // ほかにてスタート 等
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return title;
+}
+
 function loadList() {
-  S.list = animeList.get(S.year, S.season);
+  const list = animeList.get(S.year, S.season);
+  // 旧データのタイトル汚染を自動修正
+  list.forEach(a => { if (!a.custom) a.title = sanitizeTitle(a.title); });
+  S.list = list;
 }
 
 // ── Render ─────────────────────────────────────────────────────────
