@@ -128,6 +128,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .empty{text-align:center;padding:40px 16px;color:var(--text2);font-size:14px}
 .count-label{font-size:12px;color:var(--text2);padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--border)}
 .badge.custom{background:#37474f;color:#b0bec5}
+.completed-btn{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;background:transparent;color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.completed-btn.on{background:#1b3a2e;border-color:#4caf50;color:#4caf50}
 
 /* Add anime modal */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;justify-content:center}
@@ -171,7 +173,7 @@ const animeList = {
 };
 const animeState = {
   key: (id) => `nico_state_${id}`,
-  get: (id) => ls.get(animeState.key(id)) || { enabled: false, watchedCount: 0, missedFlag: false },
+  get: (id) => { const s = ls.get(animeState.key(id)) || {}; return { enabled: false, watchedCount: 0, missedFlag: false, completedFlag: false, ...s }; },
   set: (id, v) => ls.set(animeState.key(id), v),
   patch: (id, patch) => animeState.set(id, { ...animeState.get(id), ...patch }),
 };
@@ -574,6 +576,7 @@ function buildAnimeItem(anime) {
     <div class="anime-title">${missed ? `<span class="anime-missed-icon">⚠ </span>` : ''}${esc(anime.title)}${anime.custom ? ' <span class="badge custom">手動</span>' : ''}</div>
     <div class="anime-meta">${schedule} ${tagsHtml(anime)} ${st.watchedCount > 0 ? `<span>${st.watchedCount}話視聴済</span>` : ''}</div>
   </div>
+  <button class="completed-btn${st.completedFlag ? ' on' : ''}" data-action="toggle-completed" data-id="${anime.id}">完結</button>
 </div>`;
 }
 
@@ -625,6 +628,7 @@ function buildWeeklyView() {
     <div class="weekly-title${st.missedFlag ? ' missed' : ''}">${st.missedFlag ? '⚠ ' : ''}${esc(anime.title)}</div>
     <div class="weekly-sub">${tagsHtml(anime)}<span class="watched-count">視聴済 ${st.watchedCount}話</span></div>
   </div>
+  <button class="completed-btn${st.completedFlag ? ' on' : ''}" data-action="toggle-completed" data-id="${anime.id}">完結</button>
 </div>`;
   }
 
@@ -821,7 +825,7 @@ function exportViewHistory() {
     const st = animeState.get(anime.id);
     const nd = anime.nico_douga;
     const sched = nd ? `${WDAY[nd.weekday] || nd.weekday} ${nd.time}` : '放送日未定';
-    text += `${anime.title} / ${sched} / ${st.watchedCount}話視聴済み\n`;
+    text += `${anime.title} / ${sched} / ${st.watchedCount}話視聴済み${st.completedFlag ? ' / 完結' : ''}\n`;
   }
 
   const safeSeason = season === 'winter' ? 'winter' : season === 'spring' ? 'spring'
@@ -952,6 +956,13 @@ document.getElementById('app').addEventListener('click', e => {
         else render();
       }
       break;
+    case 'toggle-completed': {
+      const st = animeState.get(id);
+      animeState.patch(id, { completedFlag: !st.completedFlag });
+      // ボタンのみ差し替え（re-render不要）
+      el.classList.toggle('on', !st.completedFlag);
+      break;
+    }
     case 'export-data':
       exportAllData();
       break;
