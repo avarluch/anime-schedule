@@ -416,6 +416,7 @@ const S = {
   error: null,
   showAddForm: false,
   showSettings: false,
+  savedScrollTop: 0,
 };
 
 // 旧コードで保存された壊れたタイトル（ニコ動/ニコ生以降が混入）を修正
@@ -896,16 +897,20 @@ document.getElementById('app').addEventListener('click', e => {
       S.tab = tab;
       render();
       break;
-    case 'open-detail':
+    case 'open-detail': {
+      // 詳細に入る前のスクロール位置を保存
+      const content = document.querySelector('.content');
+      S.savedScrollTop = content ? content.scrollTop : 0;
       S.selectedId = id;
       S.view = 'detail';
       history.pushState({ modal: 'detail' }, '');
       render();
       break;
+    }
     case 'back':
       S.view = 'main';
       if (history.state && history.state.modal) history.back();
-      else render();
+      else { render(); restoreScroll(); }
       break;
     case 'watched-up': {
       const st = animeState.get(id);
@@ -1045,11 +1050,18 @@ document.getElementById('app').addEventListener('input', e => {
   }
 });
 
+function restoreScroll() {
+  if (S.savedScrollTop > 0) {
+    const content = document.querySelector('.content');
+    if (content) content.scrollTop = S.savedScrollTop;
+  }
+}
+
 // Android 戻るボタン / ブラウザ戻る → モーダル・詳細画面を閉じる
 window.addEventListener('popstate', () => {
   if (S.showAddForm)  { S.showAddForm = false;  render(); return; }
   if (S.showSettings) { S.showSettings = false; render(); return; }
-  if (S.view === 'detail') { S.view = 'main'; render(); return; }
+  if (S.view === 'detail') { S.view = 'main'; render(); restoreScroll(); return; }
   // それ以外（通常ページ遷移）は何もしない
 });
 
