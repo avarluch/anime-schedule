@@ -143,6 +143,10 @@ select:focus{border-color:var(--primary)}
 .form-row .field{flex:1}
 .add-fab{position:fixed;bottom:70px;right:16px;max-width:600px;background:var(--primary);color:#fff;border:none;border-radius:50%;width:52px;height:52px;font-size:28px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.4);z-index:90;display:flex;align-items:center;justify-content:center}
 .add-fab:active{background:var(--primary-dark)}
+.btn-edit{background:transparent;border:none;color:var(--text2);font-size:15px;padding:5px 4px;cursor:pointer;flex-shrink:0;border-radius:4px}
+.btn-edit:active{background:var(--border)}
+.btn-delete{background:transparent;border:none;color:#c62828;font-size:15px;padding:5px 4px;cursor:pointer;flex-shrink:0;border-radius:4px}
+.btn-delete:active{background:var(--warn-bg)}
 </style>
 </head>
 <body>
@@ -415,6 +419,8 @@ const S = {
   loading: false,
   error: null,
   showAddForm: false,
+  showEditForm: false,
+  editingId: null,
   showSettings: false,
   savedScrollTop: 0,
 };
@@ -561,6 +567,7 @@ function buildListView() {
   </div>
 </div>
 ${S.showAddForm ? buildAddForm() : ''}
+${S.showEditForm ? buildEditForm() : ''}
 <button class="add-fab" data-action="open-add-form" title="手動追加">＋</button>`;
 }
 
@@ -577,6 +584,7 @@ function buildAnimeItem(anime) {
     <div class="anime-title">${missed ? `<span class="anime-missed-icon">⚠ </span>` : ''}${esc(anime.title)}${anime.custom ? ' <span class="badge custom">手動</span>' : ''}</div>
     <div class="anime-meta">${schedule} ${tagsHtml(anime)} ${st.watchedCount > 0 ? `<span>${st.watchedCount}話視聴済</span>` : ''}</div>
   </div>
+  ${anime.custom ? `<button class="btn-edit" data-action="open-edit-form" data-id="${anime.id}" title="編集">✏️</button><button class="btn-delete" data-action="delete-custom" data-id="${anime.id}" title="削除">🗑️</button>` : ''}
   <button class="completed-btn${st.completedFlag ? ' on' : ''}" data-action="toggle-completed" data-id="${anime.id}">完結</button>
 </div>`;
 }
@@ -708,6 +716,80 @@ function buildAddForm() {
   </div>
 
   <button class="btn btn-primary" data-action="save-custom" style="width:100%;padding:14px;font-size:15px">追加する</button>
+</div>
+</div>`;
+}
+
+function buildEditForm() {
+  const anime = S.list.find(a => a.id === S.editingId);
+  if (!anime) return '';
+  const nd = anime.nico_douga;
+  return `
+<div class="modal-overlay" data-action="close-edit-form">
+<div class="modal">
+  <div class="modal-header">
+    <span class="modal-title">アニメを編集</span>
+    <button class="modal-close" data-action="close-edit-form">✕</button>
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <label>タイトル *</label>
+    <input type="text" id="edit-title" value="${esc(anime.title)}" autocomplete="off">
+  </div>
+
+  <div class="form-row" style="margin-bottom:12px">
+    <div class="field">
+      <label>曜日</label>
+      <select id="edit-weekday">
+        <option value="">未定</option>
+        ${WEEKDAYS.map(w => `<option value="${w}" ${nd && nd.weekday === w ? 'selected' : ''}>${w}曜日</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>時刻 (HH:MM)</label>
+      <input type="text" id="edit-time" value="${nd ? nd.time : ''}" placeholder="02:15" maxlength="5" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="form-row" style="margin-bottom:12px">
+    <div class="field">
+      <label>月</label>
+      <input type="number" id="edit-month" value="${nd ? nd.month : ''}" placeholder="4" min="1" max="12">
+    </div>
+    <div class="field">
+      <label>日</label>
+      <input type="number" id="edit-day" value="${nd ? nd.day : ''}" placeholder="15" min="1" max="31">
+    </div>
+  </div>
+
+  <div class="field" style="margin-bottom:12px">
+    <label>無料形態</label>
+    <select id="edit-freetype">
+      <option value="paid" ${anime.free_type === 'paid' ? 'selected' : ''}>有料のみ</option>
+      <option value="first_free" ${anime.free_type === 'first_free' ? 'selected' : ''}>1話無料</option>
+      <option value="first_and_latest_free" ${anime.free_type === 'first_and_latest_free' ? 'selected' : ''}>1話・最新話無料</option>
+      <option value="latest_free" ${anime.free_type === 'latest_free' ? 'selected' : ''}>最新話無料</option>
+      <option value="all_free" ${anime.free_type === 'all_free' ? 'selected' : ''}>全話無料</option>
+      <option value="other" ${anime.free_type === 'other' ? 'selected' : ''}>その他（ニコニコ以外）</option>
+    </select>
+  </div>
+  <div style="display:flex;gap:20px;margin-bottom:16px;padding:2px 0">
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer">
+      <input type="checkbox" id="edit-premium" ${anime.is_premium_unlimited ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--primary)">
+      P見放題
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer">
+      <input type="checkbox" id="edit-danime" ${anime.requires_danime ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--primary)">
+      dアニメ支店
+    </label>
+  </div>
+
+  <div class="field" style="margin-bottom:16px">
+    <label>メモ（概要欄に表示）</label>
+    <input type="text" id="edit-desc" value="${esc(anime.description || '')}" autocomplete="off">
+  </div>
+
+  <button class="btn btn-primary" data-action="save-edit" style="width:100%;padding:14px;font-size:15px">保存する</button>
 </div>
 </div>`;
 }
@@ -948,6 +1030,59 @@ document.getElementById('app').addEventListener('click', e => {
         else render();
       }
       break;
+    case 'open-edit-form':
+      S.editingId = id;
+      S.showEditForm = true;
+      history.pushState({ modal: 'edit-form' }, '');
+      render();
+      break;
+    case 'close-edit-form':
+      if (!e.target.closest('.modal') || el.classList.contains('modal-close')) {
+        S.showEditForm = false;
+        S.editingId = null;
+        if (history.state && history.state.modal) history.back();
+        else render();
+      }
+      break;
+    case 'save-edit': {
+      const anime = S.list.find(a => a.id === S.editingId);
+      if (!anime) break;
+      const titleEl = document.getElementById('edit-title');
+      const title = titleEl ? titleEl.value.trim() : '';
+      if (!title) { alert('タイトルを入力してください'); break; }
+
+      const wd = document.getElementById('edit-weekday').value;
+      const timeVal = document.getElementById('edit-time').value.trim();
+      const mo = parseInt(document.getElementById('edit-month').value, 10) || 0;
+      const dy = parseInt(document.getElementById('edit-day').value, 10) || 0;
+      const ft = document.getElementById('edit-freetype').value;
+      const isPremium = document.getElementById('edit-premium').checked;
+      const isDanime  = document.getElementById('edit-danime').checked;
+      const desc = document.getElementById('edit-desc').value.trim();
+
+      const timeOk = /^\d{2}:\d{2}$/.test(timeVal);
+      const nico_douga = (wd && timeOk)
+        ? { weekday: wd, time: timeVal, month: mo || 1, day: dy || 1 }
+        : null;
+
+      Object.assign(anime, { title, nico_douga, free_type: ft, is_premium_unlimited: isPremium, requires_danime: isDanime, description: desc });
+      animeList.set(S.year, S.season, S.list);
+      S.showEditForm = false;
+      S.editingId = null;
+      if (history.state && history.state.modal) history.back();
+      else render();
+      break;
+    }
+    case 'delete-custom': {
+      const anime = S.list.find(a => a.id === id);
+      if (!anime) break;
+      if (!confirm(`「${anime.title}」を削除しますか？`)) break;
+      S.list = S.list.filter(a => a.id !== id);
+      animeList.set(S.year, S.season, S.list);
+      ls.del(animeState.key(id));
+      render();
+      break;
+    }
     case 'open-settings':
       S.showSettings = true;
       history.pushState({ modal: 'settings' }, '');
@@ -1060,6 +1195,7 @@ function restoreScroll() {
 // Android 戻るボタン / ブラウザ戻る → モーダル・詳細画面を閉じる
 window.addEventListener('popstate', () => {
   if (S.showAddForm)  { S.showAddForm = false;  render(); return; }
+  if (S.showEditForm) { S.showEditForm = false; S.editingId = null; render(); return; }
   if (S.showSettings) { S.showSettings = false; render(); return; }
   if (S.view === 'detail') { S.view = 'main'; render(); restoreScroll(); return; }
   // それ以外（通常ページ遷移）は何もしない
