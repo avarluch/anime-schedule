@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="28" fill="#e6500c"/>
+  <rect x="24" y="52" width="144" height="92" rx="10" fill="#fff" opacity="0.15"/>
+  <rect x="32" y="60" width="128" height="76" rx="8" fill="#1a1a2e"/>
+  <circle cx="96" cy="98" r="24" fill="none" stroke="#fff" stroke-width="4"/>
+  <polygon points="90,88 90,108 112,98" fill="#fff"/>
+  <text x="96" y="170" font-size="18" text-anchor="middle" font-family="sans-serif" fill="#fff" font-weight="bold">ニコアニメ</text>
+</svg>
