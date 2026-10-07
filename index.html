@@ -99,8 +99,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-
 .weekly-info{flex:1;min-width:0}
 .weekly-title{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .weekly-title.missed{color:#ff6b6b}
-.weekly-sub{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;gap:6px}
+.weekly-sub{font-size:11px;color:var(--text2);margin-top:2px;display:flex;align-items:center;flex-wrap:wrap;gap:3px 6px}
+.weekly-progress{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .watched-count{font-size:12px;color:var(--text2);white-space:nowrap}
+.first-ep{font-size:11px;color:var(--text2);white-space:nowrap;border:1px solid var(--border);border-radius:4px;padding:1px 5px}
 .no-schedule{padding:8px 12px;font-size:12px;color:var(--text2)}
 
 /* Detail view */
@@ -384,6 +386,12 @@ function tagsHtml(anime) {
   return tags.map(t => `<span class="badge ${t.cls}">${t.label}</span>`).join(' ');
 }
 
+function firstEpisodeHtml(anime) {
+  const nd = anime.nico_douga;
+  if (!nd || !nd.month || !nd.day) return '';
+  return `<span class="first-ep">1話 ${nd.month}/${nd.day}(${nd.weekday})</span>`;
+}
+
 function weekdayIdx(wd) { return WEEKDAYS.indexOf(wd); }
 
 function sortWeekly(animes) {
@@ -635,7 +643,7 @@ function buildWeeklyView() {
   <div class="weekly-time">${time}</div>
   <div class="weekly-info">
     <div class="weekly-title${st.missedFlag ? ' missed' : ''}">${st.missedFlag ? '⚠ ' : ''}${esc(anime.title)}</div>
-    <div class="weekly-sub">${tagsHtml(anime)}<span class="watched-count">視聴済 ${st.watchedCount}話</span></div>
+    <div class="weekly-sub">${tagsHtml(anime)}<span class="weekly-progress"><span class="watched-count">視聴済 ${st.watchedCount}話</span>${firstEpisodeHtml(anime)}</span></div>
   </div>
   <button class="completed-btn${st.completedFlag ? ' on' : ''}" data-action="toggle-completed" data-id="${anime.id}">完結</button>
 </div>`;
@@ -754,11 +762,11 @@ function buildEditForm() {
   <div class="form-row" style="margin-bottom:12px">
     <div class="field">
       <label>月</label>
-      <input type="number" id="edit-month" value="${nd ? nd.month : ''}" placeholder="4" min="1" max="12">
+      <input type="number" id="edit-month" value="${nd && nd.month ? nd.month : ''}" placeholder="4" min="1" max="12">
     </div>
     <div class="field">
       <label>日</label>
-      <input type="number" id="edit-day" value="${nd ? nd.day : ''}" placeholder="15" min="1" max="31">
+      <input type="number" id="edit-day" value="${nd && nd.day ? nd.day : ''}" placeholder="15" min="1" max="31">
     </div>
   </div>
 
@@ -800,7 +808,7 @@ function buildDetail() {
 
   const st = animeState.get(anime.id);
   const nd = anime.nico_douga;
-  const schedule = nd ? `${nd.weekday}曜日 ${nd.time} (${nd.month}/${nd.day})` : '放送日未定';
+  const schedule = nd ? `${nd.weekday}曜日 ${nd.time}${nd.month && nd.day ? ` (${nd.month}/${nd.day})` : ''}` : '放送日未定';
 
   return `
 <div class="header">
@@ -1062,7 +1070,7 @@ document.getElementById('app').addEventListener('click', e => {
 
       const timeOk = /^\d{2}:\d{2}$/.test(timeVal);
       const nico_douga = (wd && timeOk)
-        ? { weekday: wd, time: timeVal, month: mo || 1, day: dy || 1 }
+        ? { weekday: wd, time: timeVal, month: mo || null, day: dy || null }
         : null;
 
       Object.assign(anime, { title, nico_douga, free_type: ft, is_premium_unlimited: isPremium, requires_danime: isDanime, description: desc });
@@ -1127,7 +1135,7 @@ document.getElementById('app').addEventListener('click', e => {
 
       const timeOk = /^\d{2}:\d{2}$/.test(timeVal);
       const nico_douga = (wd && timeOk)
-        ? { weekday: wd, time: timeVal, month: mo || 1, day: dy || 1 }
+        ? { weekday: wd, time: timeVal, month: mo || null, day: dy || null }
         : null;
 
       const newAnime = {
