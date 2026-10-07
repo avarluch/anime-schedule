@@ -1,4 +1,4 @@
-const CACHE = 'nico-anime-v2';
+const CACHE = 'nico-anime-v3';
 const SHELL = ['./index.html', './manifest.json', './sw.js', './icon.svg'];
 
 self.addEventListener('install', e => {
